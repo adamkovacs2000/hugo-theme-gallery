@@ -131,15 +131,42 @@ if (gallery) {
     });
   }
 
+  // Decoded background thumbnails for the current, previous and next photo (URL -> promise)
+  const thumbCache = new Map();
+
+  const thumbUrl = (element) => element?.querySelector("img")?.dataset["src"];
+
+  function loadThumb(url) {
+    if (!thumbCache.has(url)) {
+      const img = new Image();
+      img.src = url;
+      thumbCache.set(url, img.decode().catch(() => {}));
+    }
+    return thumbCache.get(url);
+  }
+
   lightbox.on("change", () => {
-    const element = lightbox.pswp.currSlide?.data?.element;
+    const pswp = lightbox.pswp;
+    const element = pswp.currSlide?.data?.element;
     const target = element?.dataset["pswpTarget"];
     history.replaceState("", document.title, "#" + target);
 
-    const thumbnail = element?.querySelector("img")?.dataset["src"];
+    const thumbnail = thumbUrl(element);
     if (thumbnail && !isTouch) {
-      lightbox.pswp.element.classList.add("pswp--blur-bg");
-      lightbox.pswp.bg.style.backgroundImage = `url("${thumbnail}")`;
+      // Preload the neighbours' backgrounds and forget the rest
+      const n = pswp.getNumItems();
+      const neighbours = [-1, 1].map((d) => thumbUrl(pswp.getItemData((pswp.currIndex + d + n) % n)?.element)).filter(Boolean);
+      const keep = new Set([thumbnail, ...neighbours]);
+      thumbCache.forEach((_, url) => keep.has(url) || thumbCache.delete(url));
+      neighbours.forEach(loadThumb);
+
+      // Keep the previous blurred background until the new thumbnail is loaded, to avoid a black flash of background
+      loadThumb(thumbnail).then(() => {
+        // Skip if the user has already moved on to another photo
+        if (lightbox.pswp?.currSlide?.data?.element !== element) return;
+        lightbox.pswp.element.classList.add("pswp--blur-bg");
+        lightbox.pswp.bg.style.backgroundImage = `url("${thumbnail}")`;
+      });
     }
   });
 
