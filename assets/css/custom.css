@@ -1,1 +1,20 @@
 /* custom.css */
+
+/* White border around the photo in the lightbox
+   (--lightbox-border and the placeholder border are set in lightbox.js) */
+.pswp__img {
+  box-shadow: 0 0 0 var(--lightbox-border, 6px) #fff;
+}
+
+.pswp--zoomed-in .pswp__img {
+  box-shadow: none;
+}
+
+/* Blurred copy of the current photo as lightbox background (image set in lightbox.js, desktop only) */
+.pswp--blur-bg .pswp__bg {
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(40px) brightness(0.5);
+  transform: scale(1.15);
+}

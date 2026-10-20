@@ -5,6 +5,18 @@ import * as params from "@params";
 
 const gallery = document.getElementById("gallery");
 
+const isTouch = window.matchMedia("(pointer: coarse)").matches;
+const BORDER = isTouch ? 2 : 6;
+const SPACING = 24;
+
+document.documentElement.style.setProperty("--lightbox-border", BORDER + "px");
+
+// Border touches the screen edge, except in fullscreen on desktop where a gap is kept.
+function getPadding() {
+  const p = !isTouch && document.fullscreenElement ? SPACING : BORDER;
+  return { top: p, bottom: p, left: p, right: p };
+}
+
 if (gallery) {
   const lightbox = new PhotoSwipeLightbox({
     gallery,
@@ -18,7 +30,45 @@ if (gallery) {
     arrowPrevTitle: params.arrowPrevTitle,
     arrowNextTitle: params.arrowNextTitle,
     errorMsg: params.errorMsg,
+    paddingFn: getPadding,
   });
+
+  // The placeholder (thumbnail shown while loading) is rendered 250px wide and
+  // scaled up with a transform, which would scale its border too. Compensate.
+  lightbox.on("contentResize", ({ content, width }) => {
+    const placeholder = content.placeholder?.element;
+    if (placeholder?.tagName === "IMG" && width) {
+      placeholder.style.boxShadow = `0 0 0 calc(var(--lightbox-border) * ${250 / width}) #fff`;
+    }
+  });
+
+  // Padding depends on fullscreen state, so recalculate when it changes
+  document.addEventListener("fullscreenchange", () => {
+    lightbox.pswp?.updateSize(true);
+  });
+
+  if (document.fullscreenEnabled) {
+    lightbox.on("uiRegister", () => {
+      lightbox.pswp.ui.registerElement({
+        name: "fullscreen-button",
+        order: 9,
+        isButton: true,
+        title: params.fullscreenTitle || "Fullscreen",
+        html: {
+          isCustomSVG: true,
+          inner: '<path d="M9 9h5v2h-3v3H9Zm14 0v5h-2v-3h-3V9ZM9 23v-5h2v3h3v2Zm14 0h-5v-2h3v-3h2Z" id="pswp__icn-fullscreen"/>',
+          outlineID: "pswp__icn-fullscreen",
+        },
+        onClick: () => {
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+          } else {
+            document.documentElement.requestFullscreen();
+          }
+        },
+      });
+    });
+  }
 
   if (params.enableDownload) {
     lightbox.on("uiRegister", () => {
@@ -46,12 +96,22 @@ if (gallery) {
   }
 
   lightbox.on("change", () => {
-    const target = lightbox.pswp.currSlide?.data?.element?.dataset["pswpTarget"];
+    const element = lightbox.pswp.currSlide?.data?.element;
+    const target = element?.dataset["pswpTarget"];
     history.replaceState("", document.title, "#" + target);
+
+    const thumbnail = element?.querySelector("img")?.dataset["src"];
+    if (thumbnail && !isTouch) {
+      lightbox.pswp.element.classList.add("pswp--blur-bg");
+      lightbox.pswp.bg.style.backgroundImage = `url("${thumbnail}")`;
+    }
   });
 
   lightbox.on("close", () => {
     history.replaceState("", document.title, window.location.pathname);
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
   });
 
   new PhotoSwipeDynamicCaption(lightbox, {
