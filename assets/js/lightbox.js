@@ -70,6 +70,42 @@ if (gallery) {
     });
   }
 
+  // Caption (title + EXIF) is hidden by default and toggled with the info button
+  let captionVisible = false;
+
+  // The caption plugin builds each slide's caption once, so drop the cached ones and re-layout
+  function refreshCaptions() {
+    lightbox.pswp.mainScroll.itemHolders.forEach(({ slide }) => {
+      if (slide) {
+        slide.dynamicCaption?.element?.remove();
+        delete slide.dynamicCaption;
+      }
+    });
+    lightbox.pswp.updateSize(true);
+  }
+
+  lightbox.on("uiRegister", () => {
+    lightbox.pswp.ui.registerElement({
+      name: "info-button",
+      order: 9.5,
+      isButton: true,
+      title: params.infoTitle || "Info",
+      html: {
+        isCustomSVG: true,
+        inner: '<path d="M16 7a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 2a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm-1 5h2v7h-2Zm0-3h2v2h-2Z" id="pswp__icn-info"/>',
+        outlineID: "pswp__icn-info",
+      },
+      onInit: (el) => {
+        el.setAttribute("aria-pressed", captionVisible);
+      },
+      onClick: (event, el) => {
+        captionVisible = !captionVisible;
+        el.setAttribute("aria-pressed", captionVisible);
+        refreshCaptions();
+      },
+    });
+  });
+
   if (params.enableDownload) {
     lightbox.on("uiRegister", () => {
       lightbox.pswp.ui.registerElement({
@@ -118,6 +154,11 @@ if (gallery) {
     mobileLayoutBreakpoint: 700,
     type: "auto",
     mobileCaptionOverlapRatio: 1,
+    captionContent: (slide) => {
+      if (!captionVisible) return "";
+      const element = slide.data.element;
+      return element?.querySelector(".pswp-caption-content")?.innerHTML || element?.querySelector("img")?.alt || "";
+    },
   });
 
   lightbox.init();

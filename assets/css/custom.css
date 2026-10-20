@@ -18,3 +18,8 @@
   filter: blur(40px) brightness(0.5);
   transform: scale(1.15);
 }
+
+/* Info button: dimmed while the caption is hidden */
+.pswp__button--info-button[aria-pressed="false"] {
+  opacity: 0.5;
+}
